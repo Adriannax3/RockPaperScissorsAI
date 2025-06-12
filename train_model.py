@@ -1,20 +1,21 @@
 import os
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
+from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.callbacks import EarlyStopping
 
 # Ustawienia
 IMAGE_SIZE = (150, 150)
 BATCH_SIZE = 32
 EPOCHS = 15
-DATA_DIR = 'data'  # Folder z podfolderami: rock/, papper/, scissors/
+DATA_DIR = 'data'  # Folder z podfolderami: rock/, paper/, scissors/
 
 # Wczytywanie i przygotowanie danych
 train_datagen = ImageDataGenerator(
     rescale=1./255,
-    validation_split=0.2,  # 20% na walidację
+    validation_split=0.2,
     rotation_range=20,
     zoom_range=0.2,
     horizontal_flip=True
@@ -36,24 +37,27 @@ val_generator = train_datagen.flow_from_directory(
     subset='validation'
 )
 
-# Budowanie modelu
-model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 3)),
-    MaxPooling2D(2, 2),
-    
-    Conv2D(64, (3, 3), activation='relu'),
-    MaxPooling2D(2, 2),
-    
-    Conv2D(128, (3, 3), activation='relu'),
-    MaxPooling2D(2, 2),
-    
-    Flatten(),
-    Dense(128, activation='relu'),
-    Dropout(0.5),
-    Dense(3, activation='softmax')  # 3 klasy: rock, paper, scissors
-])
+# Wczytanie gotowego modelu bazowego
+base_model = MobileNetV2(
+    weights='imagenet',
+    include_top=False,
+    input_shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 3)
+)
 
-# Kompilacja modelu
+# Zamrożenie wag pretrenowanego modelu
+base_model.trainable = False
+
+# Dodanie własnych warstw klasyfikujących
+x = base_model.output
+x = GlobalAveragePooling2D()(x)
+x = Dropout(0.3)(x)
+x = Dense(128, activation='relu')(x)
+x = Dropout(0.3)(x)
+predictions = Dense(3, activation='softmax')(x)  # 3 klasy
+
+model = Model(inputs=base_model.input, outputs=predictions)
+
+# Kompilacja
 model.compile(
     optimizer='adam',
     loss='categorical_crossentropy',
@@ -70,6 +74,6 @@ model.fit(
     callbacks=[early_stop]
 )
 
-# Zapisanie modelu
+# Zapis modelu
 model.save('hand_gesture_model.h5')
-print("Model zapisany jako 'hand_gesture_model.h5'")
+print("✅ Model zapisany jako 'hand_gesture_model.h5'")
