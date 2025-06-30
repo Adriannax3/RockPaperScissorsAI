@@ -7,8 +7,6 @@ import tkinter as tk
 from tkinter import Label, Button, messagebox
 from PIL import Image, ImageTk
 from tensorflow.keras.models import load_model
-...
-
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense
@@ -16,7 +14,6 @@ import random
 import threading
 import time
 import os
-
 from tensorflow.keras.optimizers import Adam
 
 # === Wczytanie modeli ===
@@ -33,10 +30,10 @@ if os.path.exists(TACTIC_MODEL_PATH):
     print("✅ Wczytano tactic_model.h5")
     
     tactic_model.compile(
-    optimizer=Adam(learning_rate=1e-4),
-    loss='categorical_crossentropy',
-    metrics=['accuracy']
-)
+        optimizer=Adam(learning_rate=1e-4),
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
+    )
 else:
     tactic_model = Sequential([
         Embedding(input_dim=3, output_dim=10, input_length=sequence_length),
@@ -112,13 +109,43 @@ outcome_map = {
     ("scissors", "rock"): "PRZEGRAŁEŚ",
 }
 
+# Ikony dla gestów
+gesture_icons = {
+    "rock": "✊",
+    "paper": "🤚",
+    "scissors": "✌"
+}
+
 # === Główna aplikacja ===
 class RPSApp:
     def __init__(self, window):
         self.window = window
         self.window.title("Rock Paper Scissors AI")
-        self.window.geometry("700x300")
+        self.window.geometry("800x600")
         self.window.resizable(False, False)
+        self.window.configure(bg="#f0f0f0")
+
+        # Stylizacja
+        self.button_style = {
+            "font": ("Arial", 14, "bold"),
+            "bg": "#4CAF50",
+            "fg": "white",
+            "activebackground": "#45a049",
+            "borderwidth": 0,
+            "highlightthickness": 0,
+            "padx": 20,
+            "pady": 10
+        }
+
+        self.label_style = {
+            "font": ("Arial", 16),
+            "bg": "#f0f0f0"
+        }
+
+        self.result_style = {
+            "font": ("Arial", 18, "bold"),
+            "bg": "#f0f0f0"
+        }
 
         self.camera_index = find_working_camera()
         if self.camera_index == -1:
@@ -128,26 +155,58 @@ class RPSApp:
 
         self.video_capture = cv2.VideoCapture(self.camera_index)
 
-        # === LEWA RAMKA: AI ===
-        self.left_frame = tk.Frame(window, width=200, height=200, bg="white")
-        self.left_frame.grid(row=0, column=0, padx=10, pady=10)
-        self.left_frame.grid_propagate(False)
-        self.left_label = Label(self.left_frame, text="AI", font=("Arial", 14), bg="white")
-        self.left_label.pack(expand=True)
+        # Główny kontener
+        main_container = tk.Frame(window, bg="#f0f0f0")
+        main_container.pack(expand=True, fill="both", padx=20, pady=20)
 
-        # === CENTRUM ===
-        center_frame = tk.Frame(window)
-        center_frame.grid(row=0, column=1, padx=10, pady=10)
-        self.center_label = Label(center_frame, text="Kliknij START", font=("Arial", 16))
-        self.center_label.pack(pady=10)
-        self.start_button = Button(center_frame, text="START", command=self.start_game, font=("Arial", 14), width=10)
-        self.start_button.pack()
-        self.result_label = Label(center_frame, text="", font=("Arial", 12))
-        self.result_label.pack(pady=10)
+        # Górna część - widok kamery i AI
+        top_frame = tk.Frame(main_container, bg="#f0f0f0")
+        top_frame.pack(fill="both", expand=True)
 
-        # === PRAWA RAMKA: KAMERA ===
-        self.right_frame = Label(window, text="Kamerka", width=200, height=200, bg="lightgray")
-        self.right_frame.grid(row=0, column=2, padx=10, pady=10)
+        # Lewa ramka - kamera użytkownika (kwadratowa)
+        self.camera_container = tk.Frame(top_frame, width=300, height=300, bg="#f0f0f0")
+        self.camera_container.pack_propagate(False)
+        self.camera_container.pack(side="left", expand=True)
+        
+        self.camera_frame = tk.LabelFrame(self.camera_container, text="Twoja kamera", font=("Arial", 12, "bold"), 
+                                        bg="white", bd=2, relief="groove", width=300, height=300)
+        self.camera_frame.pack_propagate(False)
+        self.camera_frame.pack(expand=True, fill="both")
+        
+        self.camera_label = Label(self.camera_frame, bg="black")
+        self.camera_label.pack(expand=True, fill="both")
+
+        # Prawa ramka - ruch AI (kwadratowa)
+        self.ai_container = tk.Frame(top_frame, width=300, height=300, bg="#f0f0f0")
+        self.ai_container.pack_propagate(False)
+        self.ai_container.pack(side="right", expand=True)
+        
+        self.ai_frame = tk.LabelFrame(self.ai_container, text="Ruch AI", font=("Arial", 12, "bold"), 
+                                    bg="white", bd=2, relief="groove", width=300, height=300)
+        self.ai_frame.pack_propagate(False)
+        self.ai_frame.pack(expand=True, fill="both")
+        
+        self.ai_display = tk.Canvas(self.ai_frame, bg="white", highlightthickness=0)
+        self.ai_display.pack(expand=True, fill="both")
+        
+        # Tekst na canvasie będzie wyśrodkowany
+        self.ai_text = self.ai_display.create_text(150, 150, text="", font=("Arial", 72), fill="black")
+
+        # Dolna część - kontrolki
+        bottom_frame = tk.Frame(main_container, bg="#f0f0f0")
+        bottom_frame.pack(fill="x", pady=(0, 20))
+
+        # Przycisk start
+        self.start_button = Button(bottom_frame, text="ROZPOCZNIJ GRĘ", command=self.start_game, **self.button_style)
+        self.start_button.pack(pady=10)
+
+        # Etykieta wyniku
+        self.result_label = Label(bottom_frame, text="", **self.result_style)
+        self.result_label.pack()
+
+        # Etykieta statusu
+        self.status_label = Label(bottom_frame, text="Kliknij przycisk, aby rozpocząć", **self.label_style)
+        self.status_label.pack()
 
         self.update_camera()
 
@@ -157,21 +216,23 @@ class RPSApp:
             frame = cv2.flip(frame, 1)
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(img)
-            img = img.resize((200, 200))
+            img = img.resize((300, 300))
             imgtk = ImageTk.PhotoImage(image=img)
-            self.right_frame.configure(image=imgtk)
-            self.right_frame.image = imgtk
+            self.camera_label.configure(image=imgtk)
+            self.camera_label.image = imgtk
         self.window.after(10, self.update_camera)
 
     def start_game(self):
         self.start_button.config(state="disabled")
+        self.status_label.config(text="Przygotuj się...")
         threading.Thread(target=self.countdown_and_capture).start()
 
     def countdown_and_capture(self):
         for i in range(3, 0, -1):
-            self.center_label.config(text=str(i))
+            self.status_label.config(text=f"Pokazuj swój ruch za {i}...")
             time.sleep(1)
-        self.center_label.config(text="✊🤚✌")
+        
+        self.status_label.config(text="Pokazuj swój ruch!")
         time.sleep(0.5)
 
         ret, frame = self.video_capture.read()
@@ -184,7 +245,10 @@ class RPSApp:
         predicted_user_move = predict_user_next_move()
         ai_move = counter_move(predicted_user_move)
 
-        self.left_label.config(text=f"AI: {ai_move.upper()}")
+        # Aktualizacja interfejsu AI - czyszczenie canvasu i dodanie nowego tekstu
+        self.ai_display.delete("all")
+        self.ai_text = self.ai_display.create_text(150, 150, text=gesture_icons.get(ai_move, ""), 
+                                                 font=("Arial", 72), fill="black")
 
         if user_move == ai_move:
             result = "REMIS"
@@ -192,10 +256,11 @@ class RPSApp:
             result = outcome_map.get((user_move, ai_move), "PRZEGRAŁEŚ")
 
         self.result_label.config(
-            text=f"Ty: {user_move.upper()} ({confidence:.1f}%)\n{result}",
+            text=f"Twój ruch: {user_move.upper()} ({confidence:.1f}%)\nWynik: {result}",
             fg="green" if result == "WYGRAŁEŚ" else "red" if result == "PRZEGRAŁEŚ" else "black"
         )
 
+        self.status_label.config(text="Kliknij przycisk, aby zagrać ponownie")
         self.start_button.config(state="normal")
 
 

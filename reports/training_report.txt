@@ -1,0 +1,23 @@
+=== PARAMETRY TRENOWANIA ===
+Model: MobileNetV2
+Warstwy gêste: [128, 64]
+Learning rate: 0.0001
+Dropout: 0.2
+Rozmiar obrazu: (150, 150)
+Batch size: 16
+Epoki: 30
+Fine-tuning: Tak
+Fine-tuning od warstwy: 100
+
+Najlepsza dok³adnoœæ walidacyjna: 1.0000
+
+=== RAPORT KLASYFIKACJI ===
+              precision    recall  f1-score   support
+
+       paper       0.32      0.32      0.32       310
+        rock       0.35      0.35      0.35       313
+    scissors       0.34      0.34      0.34       318
+
+    accuracy                           0.34       941
+   macro avg       0.34      0.34      0.34       941
+weighted avg       0.34      0.34      0.34       941
